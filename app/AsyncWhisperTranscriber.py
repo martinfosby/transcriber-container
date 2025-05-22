@@ -44,7 +44,6 @@ class AsyncWhisperTranscriber:
         
         # Ensure folders exist
         os.makedirs("transcriptions", exist_ok=True)
-        os.makedirs(download_folder, exist_ok=True)
         
         # These will be initialized during transcribe
         self.asr = None
@@ -70,8 +69,11 @@ class AsyncWhisperTranscriber:
         if self.config.args.use_call_recording:
             logger.info("Downloading recording call data...")
             download_recording_call_data_task = asyncio.create_task(self.blob_storage_service.download_blob_from_container(ContainerName.RECORDINGS_CALL_DATA, self.config.blob_name))
+            self.recording_call_data_file = await download_recording_call_data_task
+        elif self.config.args.run_webapp:
+            logger.info("Downloading recording call data...")
+            download_recording_call_data_task = self.config.telephone_json_data
 
-        self.recording_call_data_file = await download_recording_call_data_task
 
         with open(self.recording_call_data_file, "rb") as f:
             self.recording_call_data = json.load(f)
@@ -199,9 +201,9 @@ class AsyncWhisperTranscriber:
             logger.info("Starting transcription")
             transcription = self.asr(
                 self.recording_and_metadata['content'],
-                chunk_length_s=28,
-                return_timestamps=True,
-                generate_kwargs={'num_beams': 5, 'task': 'transcribe', 'language': 'no'}
+                chunk_length_s=self.config.args.chunk_size,
+                return_timestamps=self.config.args.return_timestamps,
+                generate_kwargs={'num_beams': self.config.args.num_beams, 'task': self.config.args.task, 'language': self.config.args.language}
             )
             
             # Calculate duration

@@ -16,6 +16,12 @@ logger = get_logger(__name__)
 
 
 class BlobStorageService():
+
+    def __new__(cls):
+        if not hasattr(cls, 'instance'):
+            cls.instance = super().__new__(cls)
+        return cls.instance
+    
     def __init__(self, config: AsyncConfigManager):
         logger.info("Initializing BlobStorageService")
         self.config = config

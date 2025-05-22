@@ -55,8 +55,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--host", type=str, default="127.0.0.1",
                         help="Host address to run the Flask app on")
     
-    parser.add_argument("--debug", action="store_true", help="Run in debug mode")
-
+    parser.add_argument("--debug", action="store_true", help="Run web app in debug mode")
 
     parser.add_argument("--model", type=str, 
                         default="NbAiLabBeta/nb-whisper-large-verbatim",
@@ -113,6 +112,17 @@ def parse_arguments() -> argparse.Namespace:
 
     parser.add_argument("--load_audio", action="store_true", default=False, help="Load the audio file into memory") 
 
+    parser.add_argument("--task", type=str, default="transcribe", help="Task to perform on the audio file")
+
+    parser.add_argument("--num_beams", type=int, default=5, help="Number of beams to use")
+
+    parser.add_argument("--language", type=str, default="no", help="Language of the audio file")
+
+    parser.add_argument("--chunk-size", type=int, default=28, help="Chunk size to use for processing")
+
+    parser.add_argument("--return-timestamps", action="store_true", help="Return timestamps for each word")
+
+    # parser.add_argument("--help", action="help", default=argparse.SUPPRESS, help="Show this help message and exit")
 
     return parser.parse_args()
 
@@ -217,19 +227,8 @@ async def run_app_from_args() -> int:
         logger.info(f"Successfully processed file")
         return 0
     else:
-        logger.info(f"Processing call recording")
-        # Process a single file
-        transcriber = AsyncWhisperTranscriber(
-                model_path=args.model,
-                transcription_container=args.transcription_output_container
-                )
-        result = await transcriber.transcribe()
-        # Save results
-        result_filename = await transcriber.save_results(result)
-        blob_storage_service = BlobStorageService(config=AsyncConfigManager())
-        await blob_storage_service.upload_to_transcriptions_blob_storage(result_file_path=result_filename)
-        logger.info(f"Successfully processed file")
-        return 0
+        logger.error("Please specify either --use-call-recording or --use-webapp")
+        return 1
     
 
         
