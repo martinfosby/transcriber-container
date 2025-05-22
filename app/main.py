@@ -90,9 +90,22 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--blob-audio-url", type=str,
                         help="Provide the Azure blob URL for audio file")
     
+    parser.add_argument("--blob-uri", type=str,
+                        help="Provide the Azure blob URL for json file")
+    
+    parser.add_argument("--blob-name", type=str,
+                        help="Provide the Azure blob name for json file")
+    
+    parser.add_argument("--blob-size", type=int,
+                        help="Provide the Azure blob size for json file")
+    
+    parser.add_argument("--blob-metadata-url", type=str,
+                        help="Provide the Azure blob URL for metadata file")
+    
     parser.add_argument("--use-call-recording", action="store_true",
                         help="Use call recording given via acs")
     
+    parser.add_argument("--transcription-output-container", type=str, help="Name of the container to save the transcription results")
 
     parser.add_argument("--telephone", action="store_true", help="If the file is from a telephone recording")
 
@@ -193,7 +206,8 @@ async def run_app_from_args() -> int:
         logger.info(f"Processing call recording")
         # Process a single file
         transcriber = AsyncWhisperTranscriber(
-                model_path=args.model
+                model_path=args.model,
+                transcription_container=args.transcription_output_container
                 )
         result = await transcriber.transcribe()
         # Save results
@@ -203,10 +217,17 @@ async def run_app_from_args() -> int:
         logger.info(f"Successfully processed file")
         return 0
     else:
+        logger.info(f"Processing call recording")
+        # Process a single file
         transcriber = AsyncWhisperTranscriber(
-                model_path=args.model
+                model_path=args.model,
+                transcription_container=args.transcription_output_container
                 )
         result = await transcriber.transcribe()
+        # Save results
+        result_filename = await transcriber.save_results(result)
+        blob_storage_service = BlobStorageService(config=AsyncConfigManager())
+        await blob_storage_service.upload_to_transcriptions_blob_storage(result_file_path=result_filename)
         logger.info(f"Successfully processed file")
         return 0
     

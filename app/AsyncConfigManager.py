@@ -41,8 +41,8 @@ class AsyncConfigManager:
         self.audio_file = audio_file
         self.audio_files = audio_files
         self.telephone_json_data = telephone_json_data
-        self.blob_uri = os.getenv("BLOB_URI")
-        self.blob_name = os.getenv("BLOB_NAME")
+        self.blob_uri = os.getenv("BLOB_URI") or args.blob_uri
+        self.blob_name = os.getenv("BLOB_NAME") or args.blob_name
         self.azure_storage_connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
         self.key_vault_url = os.getenv("AZURE_KEY_VAULT_URL")
         self.storage_secret_name = os.getenv("STORAGE_SECRET_NAME")

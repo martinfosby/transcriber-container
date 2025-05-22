@@ -24,21 +24,16 @@ class AsyncWhisperTranscriber:
     
     def __init__(self, 
                  model_path: str = "NbAiLabBeta/nb-whisper-large-verbatim",
-                 transcription_container: str = ContainerName.TRANSCRIPTS,
-                 download_folder: str = "telephone_recordings",
                  ):
         """Initialize the transcriber.
         
         Args:
             model_path: Path or name of the transcription model to use
-            transcription_container: Azure container name for storing transcriptions
             download_folder: Local folder for downloading audio files
         """
         logger.info("Initializing AsyncWhisperTranscriber")
         logger.info(f"Model path: {model_path}")
         self.model_path = model_path
-        self.transcription_container = transcription_container
-        self.download_folder = download_folder
         self.timestamp = datetime.datetime.now()
         
         # Initialize configuration manager

@@ -5,6 +5,7 @@ import asyncio
 from typing import Any, List
 from azure.storage.blob.aio import BlobServiceClient, BlobClient
 import aiofiles
+from azure.core.exceptions import ResourceExistsError
 
 from AsyncConfigManager import AsyncConfigManager
 from ContainerName import ContainerName
@@ -22,9 +23,21 @@ class BlobStorageService():
             account_url=config.AZURE_STORAGE_BLOB_ACCOUNT_ENDPOINT,
             credential=config.default_credential if config.cloud_env == "azure" else config.AZURE_STORAGE_ACCOUNT_KEY
         )
-        self.recording_container_client = self.blob_service_client.get_container_client(config.RECORDINGS_CONTAINER_NAME)
-        self.recording_call_data_container_client = self.blob_service_client.get_container_client(config.RECORDINGS_CALL_DATA_CONTAINER_NAME)
-        self.transcription_container_client = self.blob_service_client.get_container_client(config.TRANSCRIPTIONS_CONTAINER_NAME)
+        self.recording_container_client = self.get_or_create_container(config.RECORDINGS_CONTAINER_NAME)
+        self.recording_call_data_container_client = self.get_or_create_container(config.RECORDINGS_CALL_DATA_CONTAINER_NAME)
+        self.transcription_container_client = self.get_or_create_container(config.TRANSCRIPTIONS_CONTAINER_NAME)
+
+    # Helper function to get or create a container
+    def get_or_create_container(self, container_name):
+        container_client = self.blob_service_client.get_container_client(container_name)
+        try:
+            container_client.create_container()
+            logger.info(f"Created container: {container_name}")
+        except ResourceExistsError:
+            logger.info(f"Container already exists: {container_name}")
+        return container_client
+
+    # Initialize containers
 
     async def upload_to_transcriptions_blob_storage(self, result_file_path):
         """Uploads a file to Azure Blob Storage"""
