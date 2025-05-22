@@ -70,17 +70,26 @@ class AsyncWhisperTranscriber:
             logger.info("Downloading recording call data...")
             download_recording_call_data_task = asyncio.create_task(self.blob_storage_service.download_blob_from_container(ContainerName.RECORDINGS_CALL_DATA, self.config.blob_name))
             self.recording_call_data_file = await download_recording_call_data_task
+            await self.load_and_process_recording()
         elif self.config.args.run_webapp:
             logger.info("Downloading recording call data...")
             download_recording_call_data_task = self.config.telephone_json_data
+            await self.load_and_process_recording()
 
 
+    async def load_and_process_recording(self):
         with open(self.recording_call_data_file, "rb") as f:
             self.recording_call_data = json.load(f)
-        self.call_recording_and_metadata_task = asyncio.create_task(self.blob_storage_service.get_call_recording_and_metadata(self.recording_call_data))
+
+        self.call_recording_and_metadata_task = asyncio.create_task(
+            self.blob_storage_service.get_call_recording_and_metadata(self.recording_call_data)
+        )
 
         self.recording_and_metadata = await self.call_recording_and_metadata_task
+        self._process_audio_metadata()
 
+
+    def _process_audio_metadata(self):
         recording_info = self.recording_and_metadata.get("recordingInfo", {})
         content_type = recording_info.get("contentType")
         channel_type = recording_info.get("channelType")
@@ -97,32 +106,25 @@ class AsyncWhisperTranscriber:
         logger.info(f"Bit rate: {bit_rate}")
         logger.info(f"Channels: {channels}")
         logger.info(f"Checking content type and channel type...")
+
         if content_type == "audio" and channel_type == "mixed":
-            # Convert format to 'mp3' if not already
             if format_ != "mp3":
                 logger.info(f"Converting format to 'mp3'...")
                 self.audio = self.audio_processor.convert_audio_to_mp3(self.audio)
-
-                # If bitrate is None or above 35000, set it to 25000
             elif bit_rate is None or bit_rate > 35000:
                 logger.info(f"Setting bitrate to 25000...")
                 self.audio = self.audio_processor.convert_audio_to_mp3(self.audio)
-
-            # Convert sample rate to 16000 if not already
             elif sample_rate != 16000:
                 logger.info(f"Converting sample rate to 16000...")
                 self.audio = self.audio_processor.convert_audio_to_mp3(self.audio)
 
         elif content_type == "audio" and channel_type == "unmixed":
-            # Convert format to 'wav' if not already
             if format_ != "wav":
                 logger.info(f"Converting format to 'wav'...")
                 self.audio = self.audio_processor.convert_audio_to_wav(self.audio)
-        
             elif sample_rate != 16000:
                 logger.info(f"Converting sample rate to 16000...")
                 self.audio = self.audio_processor.convert_audio_to_wav(self.audio)
-
 
 
 
