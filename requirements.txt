@@ -1,0 +1,12 @@
+torch 
+torchaudio 
+ffmpeg-python 
+transformers 
+azure-storage-blob 
+azure-identity 
+azure-keyvault-secrets 
+aiohttp
+aiofiles
+huggingface_hub
+gunicorn
+flask

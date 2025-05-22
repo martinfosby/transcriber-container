@@ -1,0 +1,73 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Virtual environment files
+*.env
+*.venv
+
+# IDE and editor files
+.vscode/
+.idea/
+*.code-workspace
+
+# Test and coverage results
+htmlcov/
+.coverage
+*.cover
+*.py,cover
+.cache
+nosetests.xml
+coverage.xml
+*.coveragerc
+
+# Temporary files created by Python
+*.~*
+
+# Temporary files created by macOS
+*.DS_Store
+
+# Temporary files created by Windows
+Thumbs.db
+desktop.ini
+
+# Temporary files created by Linux
+*~
+
+# Sound recordings
+*.wav
+*.mp3
+*.flac
+
+# Transcriptions
+transcriptions/
+sound_recordings
+telephone_recordings
+
+.cache.tar
