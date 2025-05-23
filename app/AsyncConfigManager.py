@@ -28,6 +28,7 @@ class AsyncConfigManager:
                  audio_file: bool = False,
                  audio_files: bool = False,
                  telephone_json_data: bool = False,
+                 json_data_from_telephone: bool = False,
                  args: Optional[argparse.Namespace] = None
                  ):
         """Initialize the configuration manager."""
@@ -45,6 +46,7 @@ class AsyncConfigManager:
         self.audio_file = audio_file
         self.audio_files = audio_files
         self.telephone_json_data = telephone_json_data
+        self.json_data_from_telephone = json_data_from_telephone
         self.blob_uri = os.getenv("BLOB_URI") or args.blob_uri
         self.blob_name = os.getenv("BLOB_NAME") or args.blob_name
         self.azure_storage_connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")

@@ -33,6 +33,7 @@ def transcribe():
             data = request.get_json()
             app.logger.info(f"Received recording data: {data}")
             AsyncConfigManager().telephone_json_data = data  # Create an singleton instance of AsyncConfigManager
+            AsyncConfigManager().json_data_from_telephone = data.get("json_data_from_telephone", False)
         except Exception as e:
             app.logger.error(f"Error processing request: {str(e)}")
             return jsonify({'status': 'error', 'message': str(e)}), 400

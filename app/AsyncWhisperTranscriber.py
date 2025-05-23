@@ -87,11 +87,16 @@ class AsyncWhisperTranscriber:
             with open(self.recording_call_data_file, "rb") as f:
                 self.recording_call_data = json.load(f)
 
+            self.config.json_data_from_telephone = self.recording_call_data.get("json_data_from_telephone", False)
+
         logger.info("Getting call recording and metadata...")
         self.recording_and_metadata = await self.blob_storage_service.get_call_recording_and_metadata(
                 self.recording_call_data
         )
-        self._process_audio_metadata()
+
+        if self.config.json_data_from_telephone:
+            logger.info("Sent from telephone system...")
+            self._process_audio_metadata()
 
 
     def _process_audio_metadata(self):
