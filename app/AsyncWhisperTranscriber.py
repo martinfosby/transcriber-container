@@ -6,7 +6,7 @@ import time
 import json
 import asyncio
 from transformers import pipeline, Pipeline
-
+import torch
 
 # User defined imports
 from ContainerName import ContainerName
@@ -134,9 +134,15 @@ class AsyncWhisperTranscriber:
 
 
     async def load_model(self):
-        # Run the pipeline in a separate thread to avoid blocking the event loop
-        self.asr: Pipeline = await asyncio.to_thread(pipeline, "automatic-speech-recognition", model=self.model_path)
-
+        """Load the ASR model."""
+        device = 0 if torch.cuda.is_available() else -1 # Use GPU (0) if available, otherwise CPU (-1)
+        # Run pipeline creation in a thread to avoid blocking the event loop
+        self.asr: Pipeline = await asyncio.to_thread(
+            pipeline,
+            "automatic-speech-recognition",
+            model=self.model_path,
+            device=device
+        )
 
     @staticmethod
     async def __validate_asr_model(model_path: str) -> None:
