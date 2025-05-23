@@ -135,8 +135,8 @@ class AsyncWhisperTranscriber:
 
     async def load_model(self):
         """Load the ASR model."""
-        device = 0 if torch.cuda.is_available() else -1 # Use GPU (0) if available, otherwise CPU (-1)
-        # Run pipeline creation in a thread to avoid blocking the event loop
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        logger.info(f"Loading ASR model on {device}")
         self.asr: Pipeline = await asyncio.to_thread(
             pipeline,
             "automatic-speech-recognition",
