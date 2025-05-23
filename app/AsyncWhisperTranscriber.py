@@ -94,7 +94,7 @@ class AsyncWhisperTranscriber:
                 self.recording_call_data
         )
 
-        if self.config.json_data_from_telephone:
+        if self.config.json_data_from_telephone or self.config.args.json_data_from_telephone:
             logger.info("Sent from telephone system...")
             self._process_audio_metadata()
 

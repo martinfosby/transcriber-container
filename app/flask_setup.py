@@ -49,7 +49,7 @@ def transcribe():
                 blob_storage_service = BlobStorageService(config=AsyncConfigManager())
                 await blob_storage_service.upload_to_transcriptions_blob_storage(result_file_path=result_filename)
                 return result
-            transcription = asyncio.run(async_transcribe())
+            transcription = asyncio.run(asyncio.wait_for(async_transcribe(),timeout=AsyncConfigManager().args.timeout)) # run transcription for max 10 minutes
         except Exception as e:
             app.logger.error(f"Error transcribing: {str(e)}")
             return jsonify({'status': 'error', 'message': str(e)}), 400

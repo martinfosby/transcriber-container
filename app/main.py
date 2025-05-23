@@ -1,5 +1,4 @@
 import os
-import sys
 import argparse
 from typing import Dict, Any, List
 import json
@@ -77,6 +76,9 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--audio-file", type=str,
                         help="Single audio file to process")
     
+    parser.add_argument("--json_data_from_telephone", action="store_true",
+                        help="Json data from a telephone system")
+    
     parser.add_argument("--json-file", type=str,
                         help="Single json file to process")
     
@@ -122,6 +124,8 @@ def parse_arguments() -> argparse.Namespace:
 
     parser.add_argument("--return-timestamps", action="store_true", help="Return timestamps for each word")
 
+    parser.add_argument("--timeout", type=int, default=600, help="Timeout for the transcription process")
+
     try:
         return parser.parse_args()
     except SystemExit as e:
@@ -149,15 +153,15 @@ async def run_app_from_args() -> int:
     if args.use_call_recording:
         logger.info(f"Processing call recording")
         # Process a single file
-        transcriber = AsyncWhisperTranscriber(
-                model_path=args.model,
-                transcription_container=args.transcription_output_container
-                )
-        result = await transcriber.transcribe()
-        # Save results
-        result_filename = await transcriber.save_results(result)
-        blob_storage_service = BlobStorageService(config=AsyncConfigManager())
-        await blob_storage_service.upload_to_transcriptions_blob_storage(result_file_path=result_filename)
+        transcriber = AsyncWhisperTranscriber(model_path=args.model)
+        async def async_transcribe():
+            result = await transcriber.transcribe()
+            # Save results
+            result_filename = await transcriber.save_results(result)
+            blob_storage_service = BlobStorageService(config=AsyncConfigManager())
+            await blob_storage_service.upload_to_transcriptions_blob_storage(result_file_path=result_filename)
+            return result
+        asyncio.wait_for(async_transcribe(), timeout=AsyncConfigManager().args.timeout)
         logger.info(f"Successfully processed file")
         return 0
     
