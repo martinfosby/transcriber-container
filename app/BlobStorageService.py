@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 
 class BlobStorageService():
 
-    def __new__(cls):
+    def __new__(cls, *args, **kwargs):
         if not hasattr(cls, 'instance'):
             cls.instance = super().__new__(cls)
         return cls.instance
@@ -33,11 +33,23 @@ class BlobStorageService():
         self.recording_call_data_container_client = self.get_or_create_container(config.RECORDINGS_CALL_DATA_CONTAINER_NAME)
         self.transcription_container_client = self.get_or_create_container(config.TRANSCRIPTIONS_CONTAINER_NAME)
 
+    async def close(self):
+        """Close the underlying BlobServiceClient session."""
+        await self.blob_service_client.close()
+        logger.info("Closed BlobServiceClient session")
+
+    # Optional: support async context manager usage
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        await self.close()
+
     # Helper function to get or create a container
-    def get_or_create_container(self, container_name):
+    async def get_or_create_container(self, container_name):
         container_client = self.blob_service_client.get_container_client(container_name)
         try:
-            container_client.create_container()
+            await container_client.create_container()
             logger.info(f"Created container: {container_name}")
         except ResourceExistsError:
             logger.info(f"Container already exists: {container_name}")
@@ -56,7 +68,7 @@ class BlobStorageService():
             # Log the blob name we're using
             logger.info(f"Using blob name: {blob_name}")
             
-            blob_client: BlobClient = self.transcription_container_client.get_blob_client(blob=blob_name)
+            blob_client: BlobClient = (await self.transcription_container_client).get_blob_client(blob=blob_name)
 
             file_size = os.path.getsize(result_file_path)
             logger.info(f"File size: {file_size / (1024*1024):.2f} MB")
@@ -65,6 +77,7 @@ class BlobStorageService():
             async with aiofiles.open(result_file_path, "rb") as f:
                 data = await f.read()
                 await blob_client.upload_blob(data, overwrite=True)
+                await blob_client.close()
 
             logger.info(f"File uploaded to Azure Blob Storage: {blob_name}")
         except Exception as e:
@@ -85,10 +98,10 @@ class BlobStorageService():
             match container_name:
                 case ContainerName.RECORDINGS:
                     container_name, blob_name = blob.split("/", 1)
-                    blob_client = self.recording_container_client.get_blob_client(blob=blob_name)
+                    blob_client = (await self.recording_container_client).get_blob_client(blob=blob_name)
                 case ContainerName.RECORDINGS_CALL_DATA:
                     container_name, blob_name = blob.split("/")
-                    blob_client = self.recording_call_data_container_client.get_blob_client(blob=blob_name)
+                    blob_client = (await self.recording_call_data_container_client).get_blob_client(blob=blob_name)
                 case _:
                     raise ValueError(f"Unknown container: {container_name}")
 
@@ -98,7 +111,7 @@ class BlobStorageService():
 
             async with aiofiles.open(download_file_path, "wb") as download_file:
                 data = await blob_client.download_blob()
-                await download_file.write(await data.readall())
+                await download_file.write(await data.readall().close())
 
             logger.info(f"Downloaded blob to {download_file_path}")
             return str(download_file_path)
@@ -136,10 +149,14 @@ class BlobStorageService():
         """Downloads the content of a blob from Azure Blob Storage."""
         try:
             logger.info(f"Downloading blob content from URL: {blob_url}")
-            blob_client = BlobClient.from_blob_url(blob_url=blob_url, credential=self.config.default_credential if self.config.cloud_env == "azure" else self.config.AZURE_STORAGE_ACCOUNT_KEY)
-            stream = await blob_client.download_blob()
-            return await stream.readall()
+            async with BlobClient.from_blob_url(
+                blob_url=blob_url,
+                credential=self.config.default_credential if self.config.cloud_env == "azure" else self.config.AZURE_STORAGE_ACCOUNT_KEY
+            ) as blob_client:
+                stream = await blob_client.download_blob()
+                return await stream.readall()
         except Exception as e:
             logger.error(f"Failed to download blob content: {str(e)}")
             raise
+
         

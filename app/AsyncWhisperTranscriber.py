@@ -40,6 +40,8 @@ class AsyncWhisperTranscriber:
         logger.info("Initializing configuration manager")
         self.config = AsyncConfigManager.get_instance()
         self.blob_storage_service = BlobStorageService(self.config)
+        
+        # Initialize audio processor
         self.audio_processor = AudioProcessor()
         
         # Ensure folders exist
@@ -59,7 +61,7 @@ class AsyncWhisperTranscriber:
         logger.info("Initializing async resources...")
 
         # Validate ASR model
-        logger.info("Validating ASR model...")
+        # logger.info("Validating ASR model...")
         # self.validate_asr_model_task = asyncio.create_task(self.__validate_asr_model(self.model_path))
         logger.info(f"Loading ASR model: {self.model_path}")
         # Load the ASR model (in a thread pool as it's CPU-bound)
@@ -67,30 +69,33 @@ class AsyncWhisperTranscriber:
 
 
         if self.config.args.use_call_recording:
+            logger.info("Using call recording...")
             logger.info("Downloading recording call data...")
             download_recording_call_data_task = asyncio.create_task(self.blob_storage_service.download_blob_from_container(ContainerName.RECORDINGS_CALL_DATA, self.config.blob_name))
             self.recording_call_data_file = await download_recording_call_data_task
             await self.load_and_process_recording()
         elif self.config.args.run_webapp:
-            logger.info("Downloading recording call data...")
-            download_recording_call_data_task = self.config.telephone_json_data
+            logger.info("Using telephone json data...")
+            self.recording_call_data = self.config.telephone_json_data
             await self.load_and_process_recording()
 
 
+
     async def load_and_process_recording(self):
-        with open(self.recording_call_data_file, "rb") as f:
-            self.recording_call_data = json.load(f)
+        if not self.recording_call_data:
+            # Load the recording call data from file
+            with open(self.recording_call_data_file, "rb") as f:
+                self.recording_call_data = json.load(f)
 
-        self.call_recording_and_metadata_task = asyncio.create_task(
-            self.blob_storage_service.get_call_recording_and_metadata(self.recording_call_data)
+        logger.info("Getting call recording and metadata...")
+        self.recording_and_metadata = await self.blob_storage_service.get_call_recording_and_metadata(
+                self.recording_call_data
         )
-
-        self.recording_and_metadata = await self.call_recording_and_metadata_task
         self._process_audio_metadata()
 
 
     def _process_audio_metadata(self):
-        recording_info = self.recording_and_metadata.get("recordingInfo", {})
+        recording_info = self.recording_and_metadata.get("recordingStorageInfo", {})
         content_type = recording_info.get("contentType")
         channel_type = recording_info.get("channelType")
         format_ = recording_info.get("format")
@@ -205,7 +210,11 @@ class AsyncWhisperTranscriber:
                 self.recording_and_metadata['content'],
                 chunk_length_s=self.config.args.chunk_size,
                 return_timestamps=self.config.args.return_timestamps,
-                generate_kwargs={'num_beams': self.config.args.num_beams, 'task': self.config.args.task, 'language': self.config.args.language}
+                generate_kwargs={
+                    'num_beams': self.config.args.num_beams, 
+                    'task': self.config.args.task, 
+                    'language': self.config.args.language
+                }
             )
             
             # Calculate duration
@@ -221,9 +230,10 @@ class AsyncWhisperTranscriber:
             logger.info("Preparing transcription results...")
             self.transcription_result = {
                 "model": self.model_path,
+                "cointainer_env": self.config.container_env,
                 "timestamp": self.timestamp.isoformat(),
                 "transcription": transcription['text'],
-                "transcription_chunks": transcription['chunks'],
+                "transcription_chunks": transcription.get('chunks'),
                 "transcription_time_taken": transcription_time,
                 "recording_metadata": self.recording_and_metadata['metadata'],
                 "call_metadata": self.recording_call_data

@@ -31,8 +31,12 @@ class AsyncConfigManager:
                  args: Optional[argparse.Namespace] = None
                  ):
         """Initialize the configuration manager."""
+        if getattr(self, "_initialized", False):
+            return
+        self._initialized = True
         logger.info("Initializing AsyncConfigManager")
         self.web_app = web_app or os.getenv("WEB_APP", False)
+        self.container_env = os.getenv("CONTAINER_ENV")
         self.AZURE_STORAGE_BLOB_ACCOUNT_ENDPOINT = os.getenv("AZURE_STORAGE_BLOB_ACCOUNT_URL")
         self.AZURE_STORAGE_ACCOUNT_KEY = os.getenv("AZURE_STORAGE_ACCOUNT_KEY")
         self.RECORDINGS_CALL_DATA_CONTAINER_NAME = os.getenv("RECORDINGS_CALL_DATA_CONTAINER_NAME") or ContainerName.RECORDINGS_CALL_DATA.value

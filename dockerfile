@@ -34,4 +34,4 @@ WORKDIR /app
 COPY app .
 
 # Set the entry point
-ENTRYPOINT ["python3", "main.py", "--use-call-recording"]
+ENTRYPOINT ["python3", "main.py"]

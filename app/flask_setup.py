@@ -1,3 +1,4 @@
+import asyncio
 import importlib.util
 from flask import Flask, request, jsonify
 import platform
@@ -11,30 +12,57 @@ from BlobStorageService import BlobStorageService
 
 app = Flask(__name__)
 
+@app.route('/', methods=['GET'])
+def root():
+    if request.method == 'GET':
+        return jsonify({'status': 'success'}), 200
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     if request.method == 'POST':
         data = request.get_json()
-        app.logger("Received webhook data:", data)
+        app.logger.info(f"Received webhook data: {data}")
 
         # Do something with the data (e.g., save to DB, trigger a job, etc.)
         return jsonify({'status': 'success'}), 200
     
-@app.route('/transcribe', methods=['POST'])
+@app.route('/transcribe', methods=['GET', 'POST'])
 def transcribe():
     if request.method == 'POST':
-        data = request.get_json()
-        app.logger("Received recording data:", data)
-        AsyncConfigManager().telephone_json_data = data  # Create an singleton instance of AsyncConfigManager
+        try:
+            data = request.get_json()
+            app.logger.info(f"Received recording data: {data}")
+            AsyncConfigManager().telephone_json_data = data  # Create an singleton instance of AsyncConfigManager
+        except Exception as e:
+            app.logger.error(f"Error processing request: {str(e)}")
+            return jsonify({'status': 'error', 'message': str(e)}), 400
         
-        transcriber = AsyncWhisperTranscriber(AsyncConfigManager().args.model)
-        transcription = transcriber.transcribe()
-        BlobStorageService().upload_to_transcriptions_blob_storage(transcription)
-
+        try:
+            app.logger.info("Transcribing...")
+            model = AsyncConfigManager().args.model
+            async def async_transcribe():
+                transcriber = AsyncWhisperTranscriber(model_path=model)
+                result = await transcriber.transcribe()
+                # Save results
+                result_filename = await transcriber.save_results(result)
+                blob_storage_service = BlobStorageService(config=AsyncConfigManager())
+                await blob_storage_service.upload_to_transcriptions_blob_storage(result_file_path=result_filename)
+                return result
+            transcription = asyncio.run(async_transcribe())
+        except Exception as e:
+            app.logger.error(f"Error transcribing: {str(e)}")
+            return jsonify({'status': 'error', 'message': str(e)}), 400
+        
         return jsonify({'status': 'success', "transcription": transcription}), 200
+
+    elif request.method == 'GET':
+        return jsonify({'status': 'success', "transcription": ""}), 200
 
 def run_flask_app_dev():
     args = AsyncConfigManager().args
+    app.logger.info(f"Host: {args.host}")
+    app.logger.info(f"Port: {args.port}")
+    app.logger.info(f"Debug: {args.debug}")
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 def run_flask_app():
@@ -46,33 +74,33 @@ def run_flask_app():
         try:
             package = "waitress"
             waitress = importlib.import_module(package)
-            app.logger("Running Flask app with Waitress on Windows")
+            app.logger.info("Running Flask app with Waitress on Windows")
             waitress.serve(app, host=args.host, port=args.port, debug=AsyncConfigManager().args.debug)
         except ModuleNotFoundError:
             import subprocess
             subprocess.check_call([sys.executable, "-m", "pip", "install", package])
             app.logger.info(f"Successfully installed {package}")
             waitress = importlib.import_module(package)
-            app.logger("Running Flask app with Waitress on Windows")
+            app.logger.info("Running Flask app with Waitress on Windows")
             waitress.serve(app, host=args.host, port=args.port, debug=AsyncConfigManager().args.debug)
     elif system == "posix":
         try:
             # Check if Gunicorn is available
             gunicorn = importlib.util.find_spec("gunicorn")
             if gunicorn is not None:
-                app.logger("Gunicorn found. Running with Gunicorn...")
+                app.logger.info("Gunicorn found. Running with Gunicorn...")
                 # Run Gunicorn via subprocess (in production)
                 subprocess.run(["gunicorn", "yourapp:app", "-b", "0.0.0.0:8000"])
             else:
-                app.logger("Gunicorn not installed. Install Gunicorn using: pip install gunicorn")
+                app.logger.warning("Gunicorn not installed. Install Gunicorn using: pip install gunicorn")
                 # Fallback to Flask's dev server (only in demo/development)
                 app.run(host=args.host, port=args.port, debug=args.debug)
         except Exception as e:
-            app.logger(f"Error importing Gunicorn: {e}")
+            app.logger.error(f"Error importing Gunicorn: {e}")
             # In case of error with Gunicorn, fallback to Flask dev server (only for local dev)
             app.run(host=args.host, port=args.port, debug=args.debug)
     else :
-        app.logger("Running Flask app using built-in development server")
+        app.logger.info("Running Flask app using built-in development server")
         app.run(host=args.host, port=args.port, debug=args.debug)
 
 if __name__ == '__main__':

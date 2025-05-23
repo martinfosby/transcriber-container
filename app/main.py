@@ -49,10 +49,10 @@ def parse_arguments() -> argparse.Namespace:
 
     parser.add_argument("--run-webapp", action="store_true", help="Run the Flask web application")
 
-    parser.add_argument("--port", type=int, default=5000,
+    parser.add_argument("--port", type=int, default=8080,
                         help="Port number to run the Flask app on")
     
-    parser.add_argument("--host", type=str, default="127.0.0.1",
+    parser.add_argument("--host", type=str, default="0.0.0.0",
                         help="Host address to run the Flask app on")
     
     parser.add_argument("--debug", action="store_true", help="Run web app in debug mode")
@@ -122,10 +122,12 @@ def parse_arguments() -> argparse.Namespace:
 
     parser.add_argument("--return-timestamps", action="store_true", help="Return timestamps for each word")
 
-    # parser.add_argument("--help", action="help", default=argparse.SUPPRESS, help="Show this help message and exit")
-
-    return parser.parse_args()
-
+    try:
+        return parser.parse_args()
+    except SystemExit as e:
+        print("Parser failed with:", e)
+        parser.print_help()  # Show what arguments ARE available
+        raise  # Re-raise the exception
 
 
 def set_logging_level(log_level: str) -> None:
@@ -141,25 +143,23 @@ def set_logging_level(log_level: str) -> None:
 async def run_app_from_args() -> int:
     """Main async entry point for the application."""
     # Parse command line arguments
-    args: argparse.Namespace = parse_arguments()
-    AsyncConfigManager(args=args)
-    
+    args = AsyncConfigManager().args
     # set_logging_level(args.log_level)
     
-    if args.run_webapp or os.getenv("RUN_WEBAPP") == "True":
-        logger.info("Running Flask web application")
-        try:
-            if os.getenv("FLASK_ENV") == "production":
-                from flask_setup import run_flask_app
-                run_flask_app()
-            else:
-                from flask_setup import run_flask_app_dev
-                run_flask_app_dev()
-            return 0
-        except Exception as e:
-            logger.error(f"Failed to run Flask web application: {str(e)}")
-            return 1
-    
+    if args.use_call_recording:
+        logger.info(f"Processing call recording")
+        # Process a single file
+        transcriber = AsyncWhisperTranscriber(
+                model_path=args.model,
+                transcription_container=args.transcription_output_container
+                )
+        result = await transcriber.transcribe()
+        # Save results
+        result_filename = await transcriber.save_results(result)
+        blob_storage_service = BlobStorageService(config=AsyncConfigManager())
+        await blob_storage_service.upload_to_transcriptions_blob_storage(result_file_path=result_filename)
+        logger.info(f"Successfully processed file")
+        return 0
     
     # Check if we're processing multiple files
     elif args.audio_files and len(args.files) > 1:
@@ -212,20 +212,6 @@ async def run_app_from_args() -> int:
         except Exception as e:
             logger.error(f"Failed to read file {args.json_file}: {str(e)}")
             return 1
-    elif args.use_call_recording:
-        logger.info(f"Processing call recording")
-        # Process a single file
-        transcriber = AsyncWhisperTranscriber(
-                model_path=args.model,
-                transcription_container=args.transcription_output_container
-                )
-        result = await transcriber.transcribe()
-        # Save results
-        result_filename = await transcriber.save_results(result)
-        blob_storage_service = BlobStorageService(config=AsyncConfigManager())
-        await blob_storage_service.upload_to_transcriptions_blob_storage(result_file_path=result_filename)
-        logger.info(f"Successfully processed file")
-        return 0
     else:
         logger.error("Please specify either --use-call-recording or --use-webapp")
         return 1
@@ -233,31 +219,39 @@ async def run_app_from_args() -> int:
 
         
 
-def import_modules():
-    logger.info("Importing required modules...")
-    try:
-        # Try to import required packages
-        import importlib
-        for package in ["aiofiles", "huggingface_hub", "transformers", "aiohttp"]:
-            try:
-                importlib.import_module(package)
-            except ImportError:
-                logger.warning(f"{package} not found, attempting to install...")
-                import subprocess
-                subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-                logger.info(f"Successfully installed {package}")
-    except Exception as e:
-        logger.warning(f"Could not auto-install dependencies: {str(e)}")
 
 def run_app(data=None):
     logger.info("Running app...")
     return asyncio.run(run_app_from_args())
 
+def run_webapp():
+    logger.info("Running web app...")
+    logger.info("Running Flask web application")
+    try:
+        if os.getenv("FLASK_ENV") == "production":
+            logger.info("Running Flask web application in production mode")
+            from flask_setup import run_flask_app
+            run_flask_app()
+        else:
+            logger.info("Running Flask web application in development mode")
+            from flask_setup import run_flask_app_dev
+            run_flask_app_dev()
+        return 0
+    except Exception as e:
+        logger.error(f"Failed to run Flask web application: {str(e)}")
+        return 1
+
 
 def main():
     """Main entry point for the application."""
     logger.info("Starting application...")
+    args = parse_arguments()
+    AsyncConfigManager(args=args)
     try:
+        if args.model:
+            logger.info(f"Using asr model: {args.model}")
+        if args.run_webapp or os.getenv("RUN_WEBAPP") == "True":
+            return run_webapp()
         return run_app()
     except KeyboardInterrupt:
         logger.info("Process interrupted by user")
