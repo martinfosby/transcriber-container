@@ -42,7 +42,7 @@ class AsyncConfigManager:
         self.AZURE_STORAGE_ACCOUNT_KEY = os.getenv("AZURE_STORAGE_ACCOUNT_KEY")
         self.RECORDINGS_CALL_DATA_CONTAINER_NAME = os.getenv("RECORDINGS_CALL_DATA_CONTAINER_NAME") or ContainerName.RECORDINGS_CALL_DATA.value
         self.RECORDINGS_CONTAINER_NAME = os.getenv("RECORDINGS_CONTAINER_NAME") or ContainerName.RECORDINGS.value
-        self.TRANSCRIPTIONS_CONTAINER_NAME = os.getenv("TRANSCRIPTIONS_CONTAINER_NAME") or ContainerName.TRANSCRIPTS.value
+        self.TRANSCRIPTIONS_CONTAINER_NAME = args.transcription_output_container or os.getenv("TRANSCRIPTIONS_CONTAINER_NAME") or ContainerName.TRANSCRIPTS.value
         self.audio_file = audio_file
         self.audio_files = audio_files
         self.telephone_json_data = telephone_json_data
