@@ -71,8 +71,7 @@ class AsyncWhisperTranscriber:
         if self.config.args.use_call_recording:
             logger.info("Using call recording...")
             logger.info("Downloading recording call data...")
-            download_recording_call_data_task = asyncio.create_task(self.blob_storage_service.download_blob_from_container(ContainerName.RECORDINGS_CALL_DATA, self.config.blob_name))
-            self.recording_call_data_file = await download_recording_call_data_task
+            self.recording_call_data_file = await self.blob_storage_service.download_blob_from_container(ContainerName.RECORDINGS_CALL_DATA, self.config.blob_name)
             await self.load_and_process_recording()
         elif self.config.args.run_webapp:
             logger.info("Using telephone json data...")
@@ -82,7 +81,7 @@ class AsyncWhisperTranscriber:
 
 
     async def load_and_process_recording(self):
-        if not self.recording_call_data:
+        if not hasattr(self, 'recording_call_data'):
             # Load the recording call data from file
             with open(self.recording_call_data_file, "rb") as f:
                 self.recording_call_data = json.load(f)

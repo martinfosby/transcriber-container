@@ -111,7 +111,8 @@ class BlobStorageService():
 
             async with aiofiles.open(download_file_path, "wb") as download_file:
                 data = await blob_client.download_blob()
-                await download_file.write(await data.readall().close())
+                content = await data.readall()
+                await download_file.write(content)
 
             logger.info(f"Downloaded blob to {download_file_path}")
             return str(download_file_path)
