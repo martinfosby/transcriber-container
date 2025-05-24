@@ -74,10 +74,11 @@ class BlobStorageService():
             logger.info(f"File size: {file_size / (1024*1024):.2f} MB")
             
             # Upload the file
+            logger.info(f"Uploading {result_file_path} to Azure Blob Storage")
             async with aiofiles.open(result_file_path, "rb") as f:
                 data = await f.read()
                 await blob_client.upload_blob(data, overwrite=True)
-                await blob_client.close()
+                # await blob_client.close()
 
             logger.info(f"File uploaded to Azure Blob Storage: {blob_name}")
         except Exception as e:
