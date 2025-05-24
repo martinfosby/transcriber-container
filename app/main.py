@@ -161,7 +161,7 @@ async def run_app_from_args() -> int:
             blob_storage_service = BlobStorageService(config=AsyncConfigManager())
             await blob_storage_service.upload_to_transcriptions_blob_storage(result_file_path=result_filename)
             return result
-        asyncio.wait_for(async_transcribe(), timeout=AsyncConfigManager().args.timeout)
+        await asyncio.wait_for(async_transcribe(), timeout=AsyncConfigManager().args.timeout)
         logger.info(f"Successfully processed file")
         return 0
     
