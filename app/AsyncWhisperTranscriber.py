@@ -77,6 +77,10 @@ class AsyncWhisperTranscriber:
             logger.info("Using telephone json data...")
             self.recording_call_data = self.config.telephone_json_data
             await self.load_and_process_recording()
+        elif self.config.args.use_environment_variables:
+            # Use environment variables for recording call data
+            logger.info("Using environment variables...")
+            
 
 
 

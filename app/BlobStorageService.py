@@ -146,6 +146,30 @@ class BlobStorageService():
         except Exception as e:
             logger.error(f"Failed to get call recording: {str(e)}")
             raise
+
+    async def get_call_recording_and_metadata_from_env(self) -> List[List[Any]]:
+        """Retrieves the call recording from Azure Communication Services."""
+        logger.info("Retrieving call recording from Azure Communication Services...")
+        try:
+            tasks = []  # List to hold tasks
+            for recordingChunk in os.environ.get("recordingStorageInfo", {}).get("recordingChunks", []):
+                # Then in your function
+                content_task = asyncio.create_task(self.download_blob_content(recordingChunk["contentLocation"]))
+                metadata_task = asyncio.create_task(self.download_blob_content(recordingChunk["metadataLocation"]))
+                tasks.extend([content_task, metadata_task])  # Add tasks to the list
+            
+            # Await all tasks concurrently
+            content, metadata_json_binary = await asyncio.gather(*tasks)
+            metadata = json.loads(metadata_json_binary)
+            results = {
+                "content": content,
+                "metadata": metadata
+            }
+
+            return results
+        except Exception as e:
+            logger.error(f"Failed to get call recording: {str(e)}")
+            raise
     
     async def download_blob_content(self, blob_url: str) -> bytes:
         """Downloads the content of a blob from Azure Blob Storage."""

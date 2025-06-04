@@ -106,6 +106,9 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--use-call-recording", action="store_true",
                         help="Use call recording given via acs")
     
+    parser.add_argument("--use-environment-variables", action="store_true",
+                        help="Use environment variables for configuration")
+    
     parser.add_argument("--transcription-output-container", type=str, help="Name of the container to save the transcription results")
 
     parser.add_argument("--telephone", action="store_true", help="If the file is from a telephone recording")
@@ -150,7 +153,7 @@ async def run_app_from_args() -> int:
     args = AsyncConfigManager().args
     # set_logging_level(args.log_level)
     
-    if args.use_call_recording:
+    if args.use_call_recording or args.use_environment_variables:
         logger.info(f"Processing call recording")
         # Process a single file
         transcriber = AsyncWhisperTranscriber(model_path=args.model)
@@ -164,6 +167,7 @@ async def run_app_from_args() -> int:
         await asyncio.wait_for(async_transcribe(), timeout=AsyncConfigManager().args.timeout)
         logger.info(f"Successfully processed file")
         return 0
+    
     
     # Check if we're processing multiple files
     elif args.audio_files and len(args.files) > 1:
